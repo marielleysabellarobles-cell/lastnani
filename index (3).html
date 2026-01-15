@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart PTA Attendance</title>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  background:linear-gradient(135deg,#fde2e4,#e0f4ff);
+  font-family:'Inter',sans-serif;
+}
+header{
+  width:100%;
+  background:#cdb4db;
+  padding:20px;
+  text-align:center;
+  font-family:'Poppins',sans-serif;
+}
+.container{
+  width:100%;
+  max-width:420px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  margin-top:20px;
+}
+.card{
+  width:100%;
+  background:white;
+  padding:22px;
+  border-radius:16px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  box-shadow:0 10px 25px rgba(0,0,0,.1);
+}
+.hidden{display:none}
+h2{text-align:center;margin:0;font-family:'Poppins',sans-serif}
+input,select,textarea,button{
+  width:100%;
+  padding:12px;
+  border-radius:10px;
+  border:1px solid #ccc;
+  font-size:1rem;
+}
+button{
+  background:linear-gradient(135deg,#ffafcc,#bde0fe);
+  border:none;
+  font-weight:600;
+  cursor:pointer;
+}
+.back-btn{
+  background:#f1f5ff;
+  border:1px solid #ccd;
+}
+video{width:100%;border-radius:10px}
+ul{padding-left:18px}
+img{max-width:100%;border-radius:8px;margin-top:5px}
+</style>
+</head>
+<body>
+<header><h1>Smart PTA Attendance</h1></header>
+<div class="container">
+
+<!-- LOGIN -->
+<div class="card" id="loginCard">
+<h2>Login</h2>
+<select id="role">
+  <option value="teacher">Teacher</option>
+  <option value="parent">Parent</option>
+</select>
+<input id="username" placeholder="Username" required>
+<input id="password" type="password" placeholder="Password" required>
+<button onclick="loginUser()">Login</button>
+</div>
+
+<!-- TEACHER DASHBOARD -->
+<div class="card hidden" id="teacherDash">
+<h2>Teacher Dashboard</h2>
+<button onclick="showPage('createMeeting')">Create Meeting</button>
+<button onclick="showPage('generateQR')">Generate QR</button>
+<button onclick="showPage('scanQR'); startTeacherCamera()">Scan QR</button>
+<button onclick="showPage('viewAttendance'); renderAttendance()">View Attendance</button>
+<button onclick="showPage('teacherAnalytics'); renderTeacherAnalytics()">Attendance Analytics</button>
+<button onclick="logout()">Logout</button>
+</div>
+
+<!-- PARENT DASHBOARD -->
+<div class="card hidden" id="parentDash">
+<h2>Parent Dashboard</h2>
+<button onclick="showPage('parentAgendasPage'); renderAgendas()">View Agendas</button>
+<button onclick="showPage('scanQRParent'); startParentCamera()">Scan QR</button>
+<button onclick="showPage('parentAnalytics'); renderParentAnalytics()">My Attendance</button>
+<button onclick="logout()">Logout</button>
+</div>
+
+<!-- CREATE MEETING -->
+<div class="card hidden" id="createMeeting">
+<button class="back-btn" onclick="goBack()">⬅ Back</button>
+<h2>Create Meeting</h2>
+<input id="meetingTitle" placeholder="Meeting Title">
+<input id="meetingDate" type="date">
+<textarea id="meetingAgenda" placeholder="Agenda"></textarea>
+<button onclick="addMeeting()">Save</button>
+</div>
+
+<!-- GENERATE QR -->
+<div class="card hidden" id="generateQR">
+<button class="back-btn" onclick="goBack()">⬅ Back</button>
+<h2>Generate QR</h2>
+<select id="qrMeetingSelect"></select>
+<input id="qrParentName" placeholder="Enter parent name">
+<button onclick="generateQR()">Generate QR</button>
+<div id="qrcodeContainer"></div>
+</div>
+
+<!-- SCAN TEACHER -->
+<div class="card hidden" id="scanQR">
+<button class="back-btn" onclick="stopTeacherCamera(); goBack()">⬅ Back</button>
+<h2>Scan QR</h2>
+<video id="videoTeacher" autoplay playsinline></video>
+<canvas id="canvasTeacher" hidden></canvas>
+<p id="scanResultTeacher"></p>
+</div>
+
+<!-- SCAN PARENT -->
+<div class="card hidden" id="scanQRParent">
+<button class="back-btn" onclick="stopParentCamera(); goBack()">⬅ Back</button>
+<h2>Scan QR</h2>
+<video id="videoParent" autoplay playsinline></video>
+<canvas id="canvasParent" hidden></canvas>
+<h4>Upload MOV (Photo Proof)</h4>
+<input type="file" accept="image/*" capture="environment" onchange="uploadMOV(event)">
+<p id="movStatus"></p>
+</div>
+
+<!-- VIEW ATTENDANCE -->
+<div class="card hidden" id="viewAttendance">
+<button class="back-btn" onclick="goBack()">⬅ Back</button>
+<h2>Attendance Records</h2>
+<ul id="attendanceList"></ul>
+</div>
+
+<!-- TEACHER ANALYTICS -->
+<div class="card hidden" id="teacherAnalytics">
+<button class="back-btn" onclick="goBack()">⬅ Back</button>
+<h2>Teacher Attendance Analytics</h2>
+<ul id="teacherStats"></ul>
+</div>
+
+<!-- PARENT AGENDAS -->
+<div class="card hidden" id="parentAgendasPage">
+<button class="back-btn" onclick="goBack()">⬅ Back</button>
+<h2>Meeting Agendas</h2>
+<ul id="parentAgendasList"></ul>
+</div>
+
+<!-- PARENT ANALYTICS -->
+<div class="card hidden" id="parentAnalytics">
+<button class="back-btn" onclick="goBack()">⬅ Back</button>
+<h2>My Attendance</h2>
+<ul id="parentStats"></ul>
+</div>
+
+</div>
+
+<script>
+// MODEL ACCOUNTS
+const teachers=[{username:"teacher1",password:"1234"}];
+const parents=[{username:"Juan",password:"parent"}];
+
+// DATA
+let meetings = JSON.parse(localStorage.getItem("meetings")||"[]");
+let attendance = JSON.parse(localStorage.getItem("attendance")||"[]");
+
+let currentUser=null;
+let currentRole=null;
+let teacherStream,parentStream;
+
+// LOGIN
+function loginUser(){
+  const r=document.getElementById("role").value;
+  const u=document.getElementById("username").value;
+  const p=document.getElementById("password").value;
+  const list=r==="teacher"?teachers:parents;
+  if(list.find(x=>x.username===u && x.password===p)){
+    currentUser=u;
+    currentRole=r;
+    document.getElementById("loginCard").classList.add("hidden");
+    document.getElementById(r+"Dash").classList.remove("hidden");
+    loadQRList();
+  }else{
+    alert("Invalid login");
+  }
+}
+
+// NAVIGATION
+function showPage(id){
+  document.querySelectorAll(".card").forEach(c=>c.classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+}
+function goBack(){ showPage(currentRole+"Dash") }
+function logout(){ location.reload() }
+
+// MEETINGS
+function addMeeting(){
+  const mTitle = document.getElementById("meetingTitle").value;
+  const mDate = document.getElementById("meetingDate").value;
+  const mAgenda = document.getElementById("meetingAgenda").value;
+  meetings.push({id:Date.now(), title:mTitle, date:mDate, agenda:mAgenda});
+  localStorage.setItem("meetings", JSON.stringify(meetings));
+  alert("Meeting saved");
+  goBack();
+}
+
+// QR GENERATION
+function loadQRList(){
+  const select = document.getElementById("qrMeetingSelect");
+  select.innerHTML="";
+  meetings.forEach(m=>select.innerHTML+=`<option value="${m.id}">${m.title}</option>`);
+}
+
+function generateQR(){
+  const meetingId = document.getElementById("qrMeetingSelect").value;
+  const parentName = document.getElementById("qrParentName").value.trim();
+  if(!parentName) return alert("Enter parent name");
+  document.getElementById("qrcodeContainer").innerHTML = "";
+  new QRCode(document.getElementById("qrcodeContainer"), `${meetingId}|${parentName}`);
+  alert(`QR generated for ${parentName}`);
+}
+
+// CAMERA
+function startTeacherCamera(){ startCamera('teacher') }
+function startParentCamera(){ startCamera('parent') }
+function startCamera(role){
+  const video = role==="teacher"?document.getElementById("videoTeacher"):document.getElementById("videoParent");
+  navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
+  .then(stream=>{
+    if(role==="teacher"){teacherStream=stream}else{parentStream=stream}
+    video.srcObject=stream;
+    scanLoop(video,role);
+  })
+}
+
+// SCAN
+function scanLoop(video,role){
+  const canvas = role==="teacher"?document.getElementById("canvasTeacher"):document.getElementById("canvasParent");
+  const ctx = canvas.getContext("2d");
+  const resultEl = role==="teacher"?document.getElementById("scanResultTeacher"):document.getElementById("movStatus");
+  function loop(){
+    if(video.readyState===4){
+      canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+      ctx.drawImage(video,0,0);
+      const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const code=jsQR(img.data,canvas.width,canvas.height);
+      if(code){
+        const [mId,pName]=code.data.split("|");
+        attendance.push({meeting:mId,parent:pName,time:new Date().toLocaleString(),proof:null});
+        localStorage.setItem("attendance",JSON.stringify(attendance));
+        resultEl.textContent="✅ Attendance Recorded";
+        stopCamera(role);
+        return;
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function stopCamera(role){
+  const stream = role==="teacher"?teacherStream:parentStream;
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+}
+
+// UPLOAD MOV (PHOTO)
+function uploadMOV(e){
+  const file=e.target.files[0];
+  if(!file){return;}
+  if(attendance.length===0){alert("Scan QR first");return;}
+  const reader=new FileReader();
+  reader.onload=function(){
+    attendance[attendance.length-1].proof = reader.result;
+    localStorage.setItem("attendance",JSON.stringify(attendance));
+    document.getElementById("movStatus").textContent="✅ MOV uploaded";
+  }
+  reader.readAsDataURL(file);
+}
+
+// RENDER ATTENDANCE / AGENDAS / ANALYTICS
+function renderAttendance(){
+  const list = document.getElementById("attendanceList");
+  list.innerHTML="";
+  attendance.forEach((a,i)=>{
+    list.innerHTML+=`<li><b>${i+1}</b><br>${a.parent}<br>Meeting ID: ${a.meeting}<br>${a.time}<br>${a.proof?'<img src="'+a.proof+'">':''}</li>`;
+  });
+  if(attendance.length===0) list.innerHTML="<li>No records yet</li>";
+}
+
+function renderAgendas(){
+  const list = document.getElementById("parentAgendasList");
+  list.innerHTML="";
+  meetings.forEach(m=>{
+    list.innerHTML+=`<li><b>${m.title}</b> - ${m.agenda}</li>`;
+  });
+}
+
+function renderTeacherAnalytics(){
+  const list = document.getElementById("teacherStats");
+  list.innerHTML="";
+  let parentsList = [...new Set(attendance.map(a=>a.parent))];
+  parentsList.forEach(p=>{
+    const rec = attendance.filter(a=>a.parent===p);
+    list.innerHTML+=`<li><b>${p}</b>: ${rec.length} meetings attended</li>`;
+  });
+}
+
+function renderParentAnalytics(){
+  const list = document.getElementById("parentStats");
+  list.innerHTML="";
+  attendance.filter(a=>a.parent===currentUser).forEach(a=>{
+    list.innerHTML+=`<li>Meeting ID: ${a.meeting}<br>${a.time}<br>${a.proof?'<img src="'+a.proof+'">':'No MOV'}</li>`;
+  });
+}
+</script>
+</body>
+</html>
